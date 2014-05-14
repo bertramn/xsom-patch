@@ -3,18 +3,25 @@ xsom-patch
 
 A patched version of the Sun Microsystems XML Schema Object Parser (XSOM) which is found in the 2.2.x JAXB implementations.
 
-Original Source Location
-https://svn.java.net/svn/xsom~sources/tags/xsom-20130531
+JAXB XJC is incapable of dealing with multiple of the same includes across episode compilations. This problem is documented as bug https://java.net/jira/browse/JAXB-875. The JIRA also suggests a patch but not exactly how to apply the patch.
 
-It is the schema object parser used in the JAXB implementation 2.2.4 to 2.2.7.
+Original XSOM project documentation can be found at https://xsom.java.net/userguide.html
+Original Source Location is https://svn.java.net/svn/xsom~sources/tags/xsom-20130531
 
-JAXB XJC is incapable of dealing with multiple includes across episode compilations ducmented as bug https://java.net/jira/browse/JAXB-875
+This XSOM version is the schema object parser used in the JAXB implementation 2.2.4 to 2.2.7.
 
-Problem is actually in XSOM library (https://xsom.java.net/userguide.html). 
+Unfortunately the JAXB library is quite a piece of work when it comes to packaging. The XSOM JAR is actually shaded into the JAXB-RI release. So to fix the problem one will need to compile this patched version and also re-release the JAXB-RI library.
 
-This sources are patched with the proposed patch from the JIRA ticket. 
-
-Unfortunately the JAXB library is quite a piece of work when it comes to packaging. The XSOM JAR is sctually shaded into the JAXB-RI release. So to fix the problem one will need to compile this patched version and also re-release the JAXB-RI library.
+To make sure the right version is patched one can add this to the JAXB build parent pom:
+```
+#!xml
+<dependency>
+  <groupId>com.sun.xsom</groupId>
+  <artifactId>xsom</artifactId>
+  <version>20130531</version>
+  <classifier>patched</classifier>
+</dependency>
+```
 
 Step By Step Guide:
 
