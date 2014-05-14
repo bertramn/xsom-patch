@@ -1,7 +1,17 @@
 *.class
+target/
 
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
+# Eclispe
+.settings/
+.project
+.classpath
+
+#Idea
+*.iml
+*.ipr
+
+# svn
+.svn
 
 # Package Files #
 *.jar
