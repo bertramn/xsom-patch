@@ -64,6 +64,10 @@ import org.xml.sax.helpers.LocatorImpl;
 import java.io.IOException;
 import java.net.URI;
 import java.text.MessageFormat;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.Stack;
 
 /**
@@ -249,9 +253,37 @@ public class NGCCRuntimeEx extends NGCCRuntime implements PatcherManager {
         runtime.parseEntity( resolveRelativeURL(null,schemaLocation),
             true, currentSchema.getTargetNamespace(), getLocator() );
     }
-    
+
+    private static final Map<ParserContext, Set<String>> parserToImportedSchemaLocations = new HashMap<ParserContext, Set<String>>();
+
+    private void traceImported(String schemaLocation) {
+        getImportedSchemaLocations().add(schemaLocation);
+    }
+
+    private boolean wasImported(String schemaLocation) {
+        return getImportedSchemaLocations().contains(schemaLocation);
+    }
+
+    private Set<String> getImportedSchemaLocations() {
+        Set<String> importedSchemaLocations = parserToImportedSchemaLocations.get(parser);
+        if (importedSchemaLocations == null) {
+            importedSchemaLocations = new HashSet<String>();
+            parserToImportedSchemaLocations.put(parser, importedSchemaLocations);
+        }
+
+        return importedSchemaLocations;
+    }
+
     /** Imports the specified schema. */
     public void importSchema( String ns, String schemaLocation ) throws SAXException {
+        if (wasImported(schemaLocation)) {
+            System.out.println("[INFO] ..Skipping <xsd:import .. schemaLocation=\"" + schemaLocation + "\" />");
+            return;
+        } else {
+            System.out.println("[INFO] Processing <xsd:import .. schemaLocation=\"" + schemaLocation + "\" />");
+            traceImported(schemaLocation);
+        }
+
         NGCCRuntimeEx newRuntime = new NGCCRuntimeEx(parser,false,this);
         InputSource source = resolveRelativeURL(ns,schemaLocation);
         if(source!=null)
