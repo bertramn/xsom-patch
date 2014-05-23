@@ -560,4 +560,7 @@ public class NGCCRuntimeEx extends NGCCRuntime implements PatcherManager {
 
 
     public static final String XMLSchemaNSURI = "http://www.w3.org/2001/XMLSchema";
+    
+    public static class PatchIndicator {
+    }
 }
