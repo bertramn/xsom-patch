@@ -93,13 +93,6 @@
             <version>20020414</version>
         </dependency>
         <dependency>
-            <groupId>com.sun</groupId>
-            <artifactId>lic</artifactId>
-            <version>1.0</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/lib/lic.jar</systemPath>
-        </dependency>
-        <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>4.8.1</version>
@@ -157,16 +150,13 @@
                         <configuration>
                             <target>
                                 
-                                <property name="compile_classpath" refid="maven.compile.classpath"/>
-                                <echo message="compile classpath: ${compile_classpath}"/>
+                                <property name="plugin_classpath" refid="maven.plugin.classpath"/>
+                                <echo message="plugin classpath: ${plugin_classpath}"/>
 
                                 <echo message="${com.sun:lic:jar}"/> 
                                 <echo message="${project.basedir}/lib/lic.jar" />
-                                <taskdef name="licence" classname="com.sun.tools.LicenceTask">
-                                  <classpath>
-                                    <pathelement path="${project.basedir}/lib/lic.jar" />
-                                  </classpath>
-                                </taskdef>
+
+                                <taskdef name="licence" classname="com.sun.tools.LicenceTask" classpathref="maven.plugin.classpath"/>
                                 
                                 <mkdir dir="build/automata" />
 
@@ -187,6 +177,15 @@
                         </configuration>
                     </execution>
                 </executions>
+                <dependencies>
+					<dependency>
+						<groupId>com.sun</groupId>
+						<artifactId>lic</artifactId>
+						<version>1.0</version>
+						<scope>system</scope>
+						<systemPath>${project.basedir}/lib/lic.jar</systemPath>
+					</dependency>
+                </dependencies>
             </plugin>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
