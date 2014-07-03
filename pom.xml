@@ -93,6 +93,13 @@
             <version>20020414</version>
         </dependency>
         <dependency>
+            <groupId>com.sun</groupId>
+            <artifactId>lic</artifactId>
+            <version>1.0</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/lic.jar</systemPath>
+        </dependency>
+        <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>4.8.1</version>
@@ -144,9 +151,16 @@
                 <executions>
                     <execution>
                         <phase>generate-sources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>                        
                         <configuration>
-                            <tasks>
+                            <target>
                                 
+                                <property name="compile_classpath" refid="maven.compile.classpath"/>
+                                <echo message="compile classpath: ${compile_classpath}"/>
+
+                                <echo message="${com.sun:lic:jar}"/> 
                                 <echo message="${project.basedir}/lib/lic.jar" />
                                 <taskdef name="licence" classname="com.sun.tools.LicenceTask">
                                   <classpath>
@@ -169,11 +183,8 @@
                                 <licence licence="licenceheader.txt">
                                   <fileset dir="build/src/" includes="com/sun/xml/xsom/impl/parser/state/*.java" />
                                 </licence>
-                            </tasks>
+                            </target>
                         </configuration>
-                        <goals>
-                            <goal>run</goal>
-                        </goals>
                     </execution>
                 </executions>
             </plugin>
