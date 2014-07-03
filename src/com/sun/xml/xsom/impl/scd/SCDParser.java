@@ -57,7 +57,7 @@ public class SCDParser implements SCDParserConstants {
   }
   private String resolvePrefix(String prefix) throws ParseException {
     try {
-      System.out.println("trying to resolve namespace [" + prefix == null || prefix.trim().lenght() == 0 ? "null" : prefix + "]");
+      System.out.println("trying to resolve namespace [" + prefix == null || prefix.trim().length() == 0 ? "null" : prefix + "]");
       String r = nsc.getNamespaceURI(prefix);
       System.out.println("resolved namespace is [" + prefix == null ? "null" : r + "]");
       // grrr!!
