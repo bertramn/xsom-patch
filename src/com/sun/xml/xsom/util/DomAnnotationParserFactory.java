@@ -1,14 +1,14 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright (c) 1997-2012 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997-2014 Oracle and/or its affiliates. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common Development
  * and Distribution License("CDDL") (collectively, the "License").  You
  * may not use this file except in compliance with the License.  You can
  * obtain a copy of the License at
- * https://glassfish.dev.java.net/public/CDDL+GPL_1_1.html
+ * http://glassfish.java.net/public/CDDL+GPL_1_1.html
  * or packager/legal/LICENSE.txt.  See the License for the specific
  * language governing permissions and limitations under the License.
  *
@@ -78,10 +78,15 @@ public class DomAnnotationParserFactory implements AnnotationParserFactory {
     }
 
     public AnnotationParser create(boolean disableSecureProcessing) {
-        return new AnnotationParserImpl();
+        return new AnnotationParserImpl(disableSecureProcessing);
     }
     
-    private static final SAXTransformerFactory stf = (SAXTransformerFactory) SAXTransformerFactory.newInstance();
+    private static final ContextClassloaderLocal<SAXTransformerFactory> stf = new ContextClassloaderLocal<SAXTransformerFactory>() {
+        @Override
+        protected SAXTransformerFactory initialValue() throws Exception {
+            return (SAXTransformerFactory) SAXTransformerFactory.newInstance();
+        }
+    };
 
     private static class AnnotationParserImpl extends AnnotationParser {
 
@@ -97,8 +102,9 @@ public class DomAnnotationParserFactory implements AnnotationParserFactory {
 
         AnnotationParserImpl(boolean disableSecureProcessing) {
             try {
-                transformer = stf.newTransformerHandler();
-                stf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, disableSecureProcessing);
+                SAXTransformerFactory factory = stf.get();
+                factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, disableSecureProcessing);
+                transformer = factory.newTransformerHandler();
             } catch (TransformerConfigurationException e) {
                 throw new Error(e); // impossible
             }
