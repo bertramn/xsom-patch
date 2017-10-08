@@ -43,6 +43,7 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Stack;
 import java.util.StringTokenizer;
+import java.util.logging.Logger;
 
 import org.xml.sax.Attributes;
 import org.xml.sax.ContentHandler;
@@ -70,6 +71,8 @@ import org.xml.sax.SAXParseException;
  */
 public class NGCCRuntime implements ContentHandler, NGCCEventSource {
     
+    protected Logger log = Logger.getLogger(getClass().getName());
+
     public NGCCRuntime() {
         reset();
     }
@@ -225,9 +228,7 @@ public class NGCCRuntime implements ContentHandler, NGCCEventSource {
      * follow an end tag, then they must be either whitespaces or
      * must match to &lt;text/>.
      * 
-     * @param   possiblyWhitespace
-     *      True if the buffered character can be ignorabale. False if
-     *      it needs to be consumed.
+     * @param ignorable True if the buffered character can be ignorabale. False if it needs to be consumed.
      */
     private void processPendingText(boolean ignorable) throws SAXException {
         if(ignorable && text.toString().trim().length()==0)

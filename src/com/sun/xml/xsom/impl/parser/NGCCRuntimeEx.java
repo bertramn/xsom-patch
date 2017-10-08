@@ -73,48 +73,48 @@ import java.util.Stack;
 /**
  * NGCCRuntime extended with various utility methods for
  * parsing XML Schema.
- * 
+ *
  * @author Kohsuke Kawaguchi (kohsuke.kawaguchi@sun.com)
  */
 public class NGCCRuntimeEx extends NGCCRuntime implements PatcherManager {
-    
+
     /** coordinator. */
     public final ParserContext parser;
-    
+
     /** The schema currently being parsed. */
     public SchemaImpl currentSchema;
-    
+
     /** The @finalDefault value of the current schema. */
     public int finalDefault = 0;
     /** The @blockDefault value of the current schema. */
     public int blockDefault = 0;
-    
+
     /**
      * The @elementFormDefault value of the current schema.
      * True if local elements are qualified by default.
      */
     public boolean elementFormDefault = false;
-    
+
     /**
      * The @attributeFormDefault value of the current schema.
      * True if local attributes are qualified by default.
      */
     public boolean attributeFormDefault = false;
-    
+
     /**
      * True if the current schema is in a chameleon mode.
      * This changes the way QNames are interpreted.
-     * 
-     * Life is very miserable with XML Schema, as you see. 
+     *
+     * Life is very miserable with XML Schema, as you see.
      */
     public boolean chameleonMode = false;
-    
+
     /**
      * URI that identifies the schema document.
      * Maybe null if the system ID is not available.
      */
     private String documentSystemId;
-    
+
     /**
      * Keep the local name of elements encountered so far.
      * This information is passed to AnnotationParser as
@@ -137,17 +137,17 @@ public class NGCCRuntimeEx extends NGCCRuntime implements PatcherManager {
     NGCCRuntimeEx( ParserContext _parser ) {
         this(_parser,false,null);
     }
-    
+
     private NGCCRuntimeEx( ParserContext _parser, boolean chameleonMode, NGCCRuntimeEx referer ) {
         this.parser = _parser;
         this.chameleonMode = chameleonMode;
         this.referer = referer;
-        
+
         // set up the default namespace binding
         currentContext = new Context("","",null);
         currentContext = new Context("xml","http://www.w3.org/XML/1998/namespace",currentContext);
     }
-    
+
     public void checkDoubleDefError( XSDeclaration c ) throws SAXException {
         if(c==null || ignorableDuplicateComponent(c)) return;
 
@@ -165,9 +165,9 @@ public class NGCCRuntimeEx extends NGCCRuntime implements PatcherManager {
         }
         return false;
     }
-    
-    
-    
+
+
+
     /* registers a patcher that will run after all the parsing has finished. */
     public void addPatcher( Patch patcher ) {
         parser.patcherManager.addPatcher(patcher);
@@ -182,146 +182,239 @@ public class NGCCRuntimeEx extends NGCCRuntime implements PatcherManager {
         reportError(msg,getLocator());
     }
 
-    
+
     /**
      * Resolves relative URI found in the document.
      *
-     * @param namespaceURI
-     *      passed to the entity resolver.
-     * @param relativeUri
-     *      value of the schemaLocation attribute. Can be null.
+     * @param namespaceURI The Namespace fragment of the xsd:import statement or the current schema targetNamespace if xsd:include
+     * @param relativeURI  value of the schemaLocation attribute, can be null if it is a publicId lookup for xsd:import only
      *
-     * @return
-     *      non-null if {@link EntityResolver} returned an {@link InputSource},
-     *      or if the relativeUri parameter seems to be pointing to something.
-     *      Otherwise it returns null, in which case import/include should be abandoned.
+     * @return non-null if {@link EntityResolver} returned an {@link InputSource},
+     * or if the relativeUri parameter seems to be pointing to something.
+     * Otherwise it returns null, in which case import/include should be abandoned.
      */
-    private InputSource resolveRelativeURL( String namespaceURI, String relativeUri ) throws SAXException {
+    private InputSource resolveRelativeURL(String namespaceURI, String relativeURI) throws SAXException {
+
         try {
-            String baseUri = getLocator().getSystemId();
-            if(baseUri==null)
-                // if the base URI is not available, the document system ID is
-                // better than nothing.
-                baseUri=documentSystemId;
 
-            EntityResolver er = parser.getEntityResolver();
-            String systemId = null;
-
-            if (relativeUri!=null)
-                systemId = Uri.resolve(baseUri,relativeUri);
-
-            if (er!=null) {
-                InputSource is = er.resolveEntity(namespaceURI,systemId);
-                if (is == null) {
-                    try {
-                        String normalizedSystemId = URI.create(systemId).normalize().toASCIIString();
-                        is = er.resolveEntity(namespaceURI,normalizedSystemId);
-                    } catch (Exception e) {
-                        // just ignore, this is a second try, return the fallback if this breaks
-                    }
-                }
-                if (is != null) {
-                    return is;
+            // if it is a xsd:import with namespace attribute only, it is a publicId lookup
+            if (namespaceURI != null && relativeURI == null) {
+                InputSource source = tryResolveResource(namespaceURI);
+                if (source != null) {
+                    source.setPublicId(namespaceURI);
+                    return source;
                 }
             }
 
-            if (systemId!=null)
-                return new InputSource(systemId);
-            else
-                return null;
+            // try relativeURI as a publicId first, we trust the entity resolver to do its work !!!
+            InputSource source = tryResolveResource(relativeURI);
+            if (source != null) {
+                source.setPublicId(relativeURI);
+                return source;
+            }
+
+            // now we continue as normal
+            source = tryResolveResource(namespaceURI, relativeURI);
+            if (source != null) {
+                return source;
+            }
+
+            // do the original dark magic
+            // still no luck, lets see if the systemId is a URI
+            if (relativeURI != null) {
+
+                String resolvingSystemId = getLocator().getSystemId();
+
+                if (resolvingSystemId == null)
+                    // if the base URI is not available, the document systemId is better than nothing.
+                    resolvingSystemId = documentSystemId;
+
+                String systemId = Uri.resolve(resolvingSystemId, relativeURI);
+                String normalizedSystemId = URI.create(systemId).normalize().toASCIIString();
+                source = tryResolveResource(namespaceURI, normalizedSystemId);
+
+                if (source != null) {
+                    return source;
+                } else {
+                    return new InputSource(systemId);
+                }
+            }
+
+            return null;
+
         } catch (IOException e) {
-            SAXParseException se = new SAXParseException(e.getMessage(),getLocator(),e);
+            SAXParseException se = new SAXParseException(e.getMessage(), getLocator(), e);
             parser.errorHandler.error(se);
             return null;
         }
+
     }
-    
+
+    private InputSource tryResolveResource(String publicId) throws SAXException {
+       return tryResolveResource(publicId, null);
+    }
+
+    private InputSource tryResolveResource(String publicId, String systemId) throws SAXException {
+        try {
+            if (parser.getEntityResolver() != null) {
+                return parser.getEntityResolver().resolveEntity(publicId, systemId);
+            }
+        } catch (IOException e) {
+            SAXParseException se = new SAXParseException(e.getMessage(), getLocator(), e);
+            parser.errorHandler.warning(se);
+        }
+        return null;
+    }
+
+    // ****************** Import testing *******************************
+
+    private String traceIncludeMessage(String schemaLocation) {
+        return new StringBuilder("<xsd:include")
+                .append(" schemaLocation=\"")
+                .append(schemaLocation)
+                .append("\" />")
+                .toString();
+    }
+
+    /**
+     * Builds a log message we can use to output information about what happened.
+     * TODO check if we can get this info from the locator
+     *
+     * @param namespace      The optional namespace if provided
+     * @param schemaLocation The location of the schema
+     *
+     * @return What the import most likely looked like
+     */
+    private String traceImportMessage(String namespace, String schemaLocation) {
+
+        StringBuilder logBuilder = new StringBuilder("<xsd:import");
+
+        if (namespace != null)
+            logBuilder.append(" namespace=\"")
+                    .append(namespace)
+                    .append("\"");
+
+        logBuilder.append(" schemaLocation=\"")
+                .append(schemaLocation)
+                .append("\" />");
+
+        return logBuilder.toString();
+
+    }
+
     /** Includes the specified schema. */
-    public void includeSchema( String schemaLocation ) throws SAXException {
-        NGCCRuntimeEx runtime = new NGCCRuntimeEx(parser,chameleonMode,this);
+    public void includeSchema(String schemaLocation) throws SAXException {
+
+        InputSource sourceToBeIncluded = resolveRelativeURL(null, schemaLocation);
+
+        // if source == null, we can't locate this document. Let's just hope that we already
+        // have the schema components for this schema or we will receive them in the future.
+        if (sourceToBeIncluded == null) {
+            getErrorHandler().warning(new SAXParseException("Unable to include schemaLocation " + schemaLocation, getLocator()));
+            return;
+        }
+
+        if (wasLoaded(sourceToBeIncluded)) {
+            log.info("Skipping " + traceIncludeMessage(schemaLocation));
+            return;
+        }
+
+        markSchemaLocationProcessed(sourceToBeIncluded);
+        log.info("Loaded " + traceIncludeMessage(schemaLocation));
+
+        NGCCRuntimeEx runtime = new NGCCRuntimeEx(parser, chameleonMode, this);
         runtime.currentSchema = this.currentSchema;
         runtime.blockDefault = this.blockDefault;
         runtime.finalDefault = this.finalDefault;
-        
+
         if( schemaLocation==null ) {
             SAXParseException e = new SAXParseException(
                 Messages.format( Messages.ERR_MISSING_SCHEMALOCATION ), getLocator() );
             parser.errorHandler.fatalError(e);
             throw e;
         }
-            
-        runtime.parseEntity( resolveRelativeURL(null,schemaLocation),
-            true, currentSchema.getTargetNamespace(), getLocator() );
+
+        // we pass the new schema to include and also the namespace we expect
+        runtime.parseEntity(sourceToBeIncluded, true, currentSchema.getTargetNamespace(), getLocator());
+
     }
 
     private static final Map<ParserContext, Set<String>> parserToImportedSchemaLocations = new HashMap<ParserContext, Set<String>>();
 
-    private void traceImported(String schemaLocation) {
-        getImportedSchemaLocations().add(schemaLocation);
+    private void markSchemaLocationProcessed(InputSource source) {
+        getLoadedSchemaLocations().add(source.getSystemId());
     }
 
-    private boolean wasImported(String schemaLocation) {
-        return getImportedSchemaLocations().contains(schemaLocation);
+    private boolean wasLoaded(InputSource source) {
+        log.info("Check if " + source.getSystemId() + " was already imported");
+        return getLoadedSchemaLocations().contains(source.getSystemId());
     }
 
-    private Set<String> getImportedSchemaLocations() {
-        Set<String> importedSchemaLocations = parserToImportedSchemaLocations.get(parser);
-        if (importedSchemaLocations == null) {
-            importedSchemaLocations = new HashSet<String>();
-            parserToImportedSchemaLocations.put(parser, importedSchemaLocations);
+    private Set<String> getLoadedSchemaLocations() {
+        // TODO review this looks weird
+        Set<String> result = parserToImportedSchemaLocations.get(parser);
+        if (result == null) {
+            result = new HashSet<String>();
+            parserToImportedSchemaLocations.put(parser, result);
         }
 
-        return importedSchemaLocations;
+        return result;
+
     }
 
     /** Imports the specified schema. */
-    public void importSchema( String ns, String schemaLocation ) throws SAXException {
-        if (wasImported(schemaLocation)) {
-            System.out.println("[INFO] ..Skipping <xsd:import .. schemaLocation=\"" + schemaLocation + "\" />");
+    public void importSchema(String namespaceURI, String schemaLocation) throws SAXException {
+
+        InputSource sourceToBeImported = resolveRelativeURL(namespaceURI, schemaLocation);
+
+        // if source == null, we can't locate this document. Let's just hope that we already
+        // have the schema components for this schema or we will receive them in the future.
+        if (sourceToBeImported == null) {
+            getErrorHandler().warning(new SAXParseException("Unable to import schemaLocation " + schemaLocation, getLocator()));
             return;
-        } else {
-            System.out.println("[INFO] Processing <xsd:import .. schemaLocation=\"" + schemaLocation + "\" />");
-            traceImported(schemaLocation);
         }
 
-        NGCCRuntimeEx newRuntime = new NGCCRuntimeEx(parser,false,this);
-        InputSource source = resolveRelativeURL(ns,schemaLocation);
-        if(source!=null)
-            newRuntime.parseEntity( source, false, ns, getLocator() );
-        // if source == null,
-        // we can't locate this document. Let's just hope that
-        // we already have the schema components for this schema
-        // or we will receive them in the future.
+        if (wasLoaded(sourceToBeImported)) {
+            log.info("Skipping " + traceImportMessage(namespaceURI, schemaLocation));
+            return;
+        }
+
+        markSchemaLocationProcessed(sourceToBeImported);
+        log.info("Loaded " + traceImportMessage(namespaceURI, schemaLocation));
+
+        NGCCRuntimeEx newRuntime = new NGCCRuntimeEx(parser, false, this);
+        newRuntime.parseEntity(sourceToBeImported, false, namespaceURI, getLocator());
+
     }
-    
+
     /**
      * Called when a new document is being parsed and checks
      * if the document has already been parsed before.
-     * 
+     *
      * <p>
      * Used to avoid recursive inclusion. Note that the same
      * document will be parsed multiple times if they are for different
      * target namespaces.
-     * 
+     *
      * <h2>Document Graph Model</h2>
      * <p>
-     * The challenge we are facing here is that you have a graph of 
+     * The challenge we are facing here is that you have a graph of
      * documents that reference each other. Each document has an unique
      * URI to identify themselves, and references are done by using those.
      * The graph may contain cycles.
-     * 
+     *
      * <p>
      * Our goal here is to parse all the documents in the graph, without
      * parsing the same document twice. This method implements this check.
-     * 
+     *
      * <p>
      * One complication is the chameleon schema; a document can be parsed
      * multiple times if they are under different target namespaces.
-     * 
+     *
      * <p>
      * Also, note that when you resolve relative URIs in the @schemaLocation,
      * their base URI is *NOT* the URI of the document.
-     * 
+     *
      * @return true if the document has already been processed and thus
      *      needs to be skipped.
      */
@@ -360,21 +453,21 @@ public class NGCCRuntimeEx extends NGCCRuntime implements PatcherManager {
 
         return existing!=null;
     }
-    
+
     /**
      * Parses the specified entity.
-     * 
+     *
      * @param importLocation
      *      The source location of the import/include statement.
      *      Used for reporting errors.
      */
     public void parseEntity( InputSource source, boolean includeMode, String expectedNamespace, Locator importLocation )
             throws SAXException {
-                
+
         documentSystemId = source.getSystemId();
         try {
             Schema s = new Schema(this,includeMode,expectedNamespace);
-            setRootHandler(s);           
+            setRootHandler(s);
             try {
                 parser.parser.parse(source,this, getErrorHandler(), parser.getEntityResolver());
             } catch( IOException fnfe ) {
@@ -386,7 +479,7 @@ public class NGCCRuntimeEx extends NGCCRuntime implements PatcherManager {
             throw e;
         }
     }
-    
+
     /**
      * Creates a new instance of annotation parser.
      */
@@ -396,7 +489,7 @@ public class NGCCRuntimeEx extends NGCCRuntime implements PatcherManager {
         else
             return parser.getAnnotationParserFactory().create();
     }
-    
+
     /**
      * Gets the element name that contains the annotation element.
      * This method works correctly only when called by the annotation handler.
@@ -443,25 +536,25 @@ public class NGCCRuntimeEx extends NGCCRuntime implements PatcherManager {
             this.prefix = _prefix;
             this.uri = _uri;
         }
-        
+
         public String resolveNamespacePrefix(String p) {
             if(p.equals(prefix))    return uri;
             if(previous==null)      return null;
             else                    return previous.resolveNamespacePrefix(p);
         }
-        
+
         private final String prefix;
         private final String uri;
         private final Context previous;
-        
+
         // XSDLib don't use those methods, so we cut a corner here.
         public String getBaseUri() { return null; }
         public boolean isNotation(String arg0) { return false; }
         public boolean isUnparsedEntity(String arg0) { return false; }
     }
-    
+
     private Context currentContext=null;
-    
+
     /** Returns an immutable snapshot of the current context. */
     public ValidationContext createValidationContext() {
         return currentContext;
@@ -499,11 +592,11 @@ public class NGCCRuntimeEx extends NGCCRuntime implements PatcherManager {
         int idx = qname.indexOf(':');
         if(idx<0) {
             String uri = resolveNamespacePrefix("");
-            
+
             // chamelon behavior. ugly...
             if( uri.equals("") && chameleonMode )
                 uri = currentSchema.getTargetNamespace();
-            
+
             // this is guaranteed to resolve
             return new UName(uri,qname,qname);
         } else {
@@ -534,7 +627,7 @@ public class NGCCRuntimeEx extends NGCCRuntime implements PatcherManager {
                 getLocator().getLineNumber(),
                 getLocator().getColumnNumber()),
             getLocator());
-            
+
         parser.errorHandler.fatalError(e);
         throw e;    // we will abort anyway
     }
@@ -560,7 +653,7 @@ public class NGCCRuntimeEx extends NGCCRuntime implements PatcherManager {
 
 
     public static final String XMLSchemaNSURI = "http://www.w3.org/2001/XMLSchema";
-    
+
     public static class PatchIndicator {
     }
 }
