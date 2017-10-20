@@ -69,6 +69,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
+import java.util.logging.Level;
 
 /**
  * NGCCRuntime extended with various utility methods for
@@ -319,9 +320,6 @@ public class NGCCRuntimeEx extends NGCCRuntime implements PatcherManager {
             return;
         }
 
-        markSchemaLocationProcessed(sourceToBeIncluded);
-        log.info("Loaded " + traceIncludeMessage(schemaLocation));
-
         NGCCRuntimeEx runtime = new NGCCRuntimeEx(parser, chameleonMode, this);
         runtime.currentSchema = this.currentSchema;
         runtime.blockDefault = this.blockDefault;
@@ -337,17 +335,39 @@ public class NGCCRuntimeEx extends NGCCRuntime implements PatcherManager {
         // we pass the new schema to include and also the namespace we expect
         runtime.parseEntity(sourceToBeIncluded, true, currentSchema.getTargetNamespace(), getLocator());
 
+        log.info("Loaded " + traceIncludeMessage(schemaLocation));
+
     }
 
     private static final Map<ParserContext, Set<String>> parserToImportedSchemaLocations = new HashMap<ParserContext, Set<String>>();
 
     private void markSchemaLocationProcessed(InputSource source) {
+
+        StringBuilder sb = new StringBuilder("Mark loaded\n");
+        if (source.getPublicId() != null) {
+            sb.append("  > publicId ").append(source.getPublicId()).append("\n");
+        }
+        if (source.getSystemId() != null) {
+            sb.append("  > systemId ").append(source.getSystemId()).append("\n");
+        }
+        log.info(sb.toString());
+
+        if (source.getPublicId() != null) {
+            getLoadedSchemaLocations().add(source.getPublicId());
+        }
         getLoadedSchemaLocations().add(source.getSystemId());
     }
 
     private boolean wasLoaded(InputSource source) {
-        log.info("Check if " + source.getSystemId() + " was already imported");
-        return getLoadedSchemaLocations().contains(source.getSystemId());
+
+        Set<String> locations = getLoadedSchemaLocations();
+
+        // we may have tracked a publicId of a source that might match
+        // there are some entity resolvers out there that return a wrapped InputSource
+        // which unfortunately produces a valid stream but not the underlying location
+        // of the resource
+        return source.getPublicId() != null && locations.contains(source.getPublicId()) || getLoadedSchemaLocations().contains(source.getSystemId());
+
     }
 
     private Set<String> getLoadedSchemaLocations() {
@@ -379,11 +399,9 @@ public class NGCCRuntimeEx extends NGCCRuntime implements PatcherManager {
             return;
         }
 
-        markSchemaLocationProcessed(sourceToBeImported);
-        log.info("Loaded " + traceImportMessage(namespaceURI, schemaLocation));
-
         NGCCRuntimeEx newRuntime = new NGCCRuntimeEx(parser, false, this);
         newRuntime.parseEntity(sourceToBeImported, false, namespaceURI, getLocator());
+        log.info("Loaded " + traceImportMessage(namespaceURI, schemaLocation));
 
     }
 
@@ -419,6 +437,9 @@ public class NGCCRuntimeEx extends NGCCRuntime implements PatcherManager {
      *      needs to be skipped.
      */
     public boolean hasAlreadyBeenRead() {
+        // FIXME this needs to be retrofitted with the new schema skipping capability #wasLoaded and #markSchemaLocationProcessed
+        log.info("Legacy test schema read " + documentSystemId != null ? documentSystemId : "no systemId");
+
         if( documentSystemId!=null ) {
             if( documentSystemId.startsWith("file:///") )
                 // change file:///abc to file:/abc
@@ -465,6 +486,33 @@ public class NGCCRuntimeEx extends NGCCRuntime implements PatcherManager {
             throws SAXException {
 
         documentSystemId = source.getSystemId();
+
+        if(log.isLoggable(Level.FINER)) {
+            StringBuilder sb = new StringBuilder("Parse \n");
+
+            if(importLocation.getPublicId() != null) {
+                sb.append("  > locator publicId ").append(importLocation.getPublicId()).append("\n");
+            }
+
+            if(importLocation.getSystemId() != null) {
+                sb.append("  > locator systemId ").append(importLocation.getSystemId()).append("\n");
+            }
+
+            if (source.getPublicId() != null) {
+                sb.append("  > publicId ").append(source.getPublicId()).append("\n");
+            }
+            if (source.getSystemId() != null) {
+                sb.append("  > systemId ").append(source.getSystemId()).append("\n");
+            }
+            sb.append("  > context\n");
+            for (String loc : getLoadedSchemaLocations()) {
+                sb.append("      -->  ").append(loc).append("\n");
+            }
+            log.finer(sb.toString());
+        }
+
+        markSchemaLocationProcessed(source);
+
         try {
             Schema s = new Schema(this,includeMode,expectedNamespace);
             setRootHandler(s);

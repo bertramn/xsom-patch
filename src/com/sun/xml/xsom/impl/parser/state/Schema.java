@@ -192,6 +192,7 @@ public class Schema extends NGCCHandler {
       }
       
       // multiple inclusion test.
+      // FIXME this needs to be integrated in the stack checking in NGCCRuntimeEx
       if( $runtime.hasAlreadyBeenRead() ) {
           // skip this document
           $runtime.redirectSubtree(new DefaultHandler(),"","","" );

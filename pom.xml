@@ -50,7 +50,7 @@
         Schema as an input.
     </description>
     <url>http://xsom.java.net/</url>
-    <version>20140925</version>
+    <version>20140925-patched</version>
     <packaging>jar</packaging>
     <parent>
         <groupId>net.java</groupId>
@@ -180,9 +180,6 @@
               <version>2.4</version>
               <executions>
                 <execution>
-                  <configuration>
-                    <classifier>patched</classifier>
-                  </configuration>
                   <goals>
                     <goal>jar</goal>
                   </goals>
