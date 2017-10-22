@@ -76,6 +76,7 @@ public final class SchemaDocumentImpl implements SchemaDocument
         this.schemaDocumentURI = _schemaDocumentURI;
     }
 
+    // FIXME should be systemId or publicId
     public String getSystemId() {
         return schemaDocumentURI;
     }

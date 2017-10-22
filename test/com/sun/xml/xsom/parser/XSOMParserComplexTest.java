@@ -61,8 +61,8 @@ public class XSOMParserComplexTest {
     @Test
     public void testRelativeImport() throws Exception {
 
-        final URL resourceOne = getClass().getResource("/complex/One.xsd");
-        final URL resourceTwo = getClass().getResource("/complex/TwoRelativeImport.xsd");
+        final URL resourceOne = getClass().getResource("/resolver/One.xsd");
+        final URL resourceTwo = getClass().getResource("/resolver/TwoRelativeImport.xsd");
 
         XSOMParser parser = new XSOMParser(SAXParserFactory.newInstance());
         // set error handler
@@ -86,8 +86,8 @@ public class XSOMParserComplexTest {
     @Test
     public void testResolverImport() throws Exception {
 
-        final URL resourceOne = getClass().getResource("/complex/One.xsd");
-        final URL resourceTwo = getClass().getResource("/complex/TwoResolverImport.xsd");
+        final URL resourceOne = getClass().getResource("/resolver/One.xsd");
+        final URL resourceTwo = getClass().getResource("/resolver/TwoResolverImport.xsd");
 
         XSOMParser parser = new XSOMParser(SAXParserFactory.newInstance());
         // set error handler
@@ -95,7 +95,7 @@ public class XSOMParserComplexTest {
 
         EntityResolver resolver = mock(EntityResolver.class);
         parser.setEntityResolver(resolver);
-        when(resolver.resolveEntity((String) eq(TNS_ONE), eq(TNS_ONE + ":One.xsd"))).thenAnswer(new InputSourceMockAnswer(resourceOne));
+        when(resolver.resolveEntity(eq(TNS_ONE), eq(TNS_ONE + ":One.xsd"))).thenAnswer(new InputSourceMockAnswer(resourceOne));
 
         // create input sources with resource url as systemId
         parser.parse(new InputSource(resourceOne.toExternalForm()));
@@ -112,8 +112,8 @@ public class XSOMParserComplexTest {
     @Test
     public void testRelativeInclude() throws Exception {
 
-        final URL resourceOne = getClass().getResource("/complex/One.xsd");
-        final URL resourceTwo = getClass().getResource("/complex/TwoRelativeInclude.xsd");
+        final URL resourceOne = getClass().getResource("/resolver/One.xsd");
+        final URL resourceTwo = getClass().getResource("/resolver/TwoRelativeInclude.xsd");
 
         XSOMParser parser = new XSOMParser(SAXParserFactory.newInstance());
         // set error handler
@@ -140,8 +140,8 @@ public class XSOMParserComplexTest {
     @Test
     public void testResolverInclude() throws Exception {
 
-        final URL resourceOne = getClass().getResource("/complex/One.xsd");
-        final URL resourceTwo = getClass().getResource("/complex/TwoResolverInclude.xsd");
+        final URL resourceOne = getClass().getResource("/resolver/One.xsd");
+        final URL resourceTwo = getClass().getResource("/resolver/TwoResolverInclude.xsd");
 
         XSOMParser parser = new XSOMParser(SAXParserFactory.newInstance());
         // set error handler
@@ -171,8 +171,8 @@ public class XSOMParserComplexTest {
     @Test
     public void testResolverIncludePublicId() throws Exception {
 
-        final URL resourceOne = getClass().getResource("/complex/One.xsd");
-        final URL resourceTwo = getClass().getResource("/complex/TwoResolverInclude.xsd");
+        final URL resourceOne = getClass().getResource("/resolver/One.xsd");
+        final URL resourceTwo = getClass().getResource("/resolver/TwoResolverInclude.xsd");
 
         XSOMParser parser = new XSOMParser(SAXParserFactory.newInstance());
         // set error handler

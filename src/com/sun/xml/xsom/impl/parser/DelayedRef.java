@@ -100,7 +100,8 @@ public abstract class DelayedRef implements Patch {
 
     private Object ref=null;
     protected final Object _get() {
-        if(ref==null)   throw new InternalError("unresolved reference");
+        if(ref==null)
+            throw new InternalError("unresolved reference");
         return ref;
     }
     
